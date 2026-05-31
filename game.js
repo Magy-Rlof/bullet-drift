@@ -25,6 +25,64 @@ const POWER_DURATIONS = {
   shield: 4.2,
   slow: 5.2,
 };
+const PERFORMANCE_LIMITS = {
+  bullets: 240,
+  particles: 120,
+};
+const DIFFICULTY_STAGES = [
+  {
+    name: "warmup",
+    start: 0,
+    speedBase: 0.88,
+    speedGain: 0.012,
+    speedMax: 1.05,
+    smallInterval: [0.88, 1.12],
+    patternInterval: [3.6, 4.4],
+    heavyChance: 0,
+    redChance: 0,
+    arcChance: 0,
+    bulletLimit: 92,
+  },
+  {
+    name: "pressure",
+    start: 12,
+    speedBase: 1.02,
+    speedGain: 0.014,
+    speedMax: 1.25,
+    smallInterval: [0.62, 0.82],
+    patternInterval: [2.9, 3.7],
+    heavyChance: 1,
+    redChance: 0,
+    arcChance: 0,
+    bulletLimit: 140,
+  },
+  {
+    name: "mixed",
+    start: 28,
+    speedBase: 1.22,
+    speedGain: 0.016,
+    speedMax: 1.55,
+    smallInterval: [0.44, 0.62],
+    patternInterval: [2.1, 2.9],
+    heavyChance: 0.42,
+    redChance: 0.58,
+    arcChance: 0,
+    bulletLimit: 190,
+  },
+  {
+    name: "surge",
+    start: 48,
+    speedBase: 1.48,
+    speedGain: 0.018,
+    speedMax: 2.1,
+    smallInterval: [0.31, 0.48],
+    patternInterval: [1.35, 2],
+    heavyChance: 0.18,
+    redChance: 0.42,
+    arcChance: 0.4,
+    bulletLimit: PERFORMANCE_LIMITS.bullets,
+  },
+];
 
 const TRANSLATIONS = {
   en: {
@@ -79,7 +137,7 @@ const TRANSLATIONS = {
     keyboardLabel: "Keyboard",
     keyboardValue: "WASD / arrows",
     touchLabel: "Touch",
-    touchValue: "Drag in arena",
+    touchValue: "Relative drag",
     runLabel: "Run",
     runValue: "Space / button",
     pauseLabel: "Pause",
@@ -139,7 +197,7 @@ const TRANSLATIONS = {
     keyboardLabel: "键盘",
     keyboardValue: "WASD / 方向键",
     touchLabel: "触控",
-    touchValue: "场地内拖动",
+    touchValue: "相对拖动",
     runLabel: "开局",
     runValue: "空格 / 按钮",
     pauseLabel: "暂停",
@@ -152,18 +210,20 @@ const TRANSLATIONS = {
 const BASE_WORLD = { width: 960, height: 540 };
 const WORLD = { ...BASE_WORLD };
 const keys = new Set();
-const pointer = { active: false, x: WORLD.width / 2, y: WORLD.height / 2 };
+const pointer = { active: false, x: WORLD.width / 2, y: WORLD.height / 2, lastX: WORLD.width / 2, lastY: WORLD.height / 2 };
 
 let bestScore = Number(localStorage.getItem("bullet-drift-best") || 0);
 let language = localStorage.getItem("bullet-drift-language") || preferredLanguage();
 let lastFrame = 0;
 let pauseOverlayCleanupTimer = 0;
+let audioContext;
 let game = createGame("ready");
 
 applyLanguage();
 requestAnimationFrame(frame);
 
 primaryAction.addEventListener("click", () => {
+  unlockAudio();
   if (game.state === "running") {
     pauseGame();
   } else if (game.state === "paused") {
@@ -173,8 +233,14 @@ primaryAction.addEventListener("click", () => {
   }
 });
 
-fullscreenAction.addEventListener("click", enterFullscreen);
-pauseAction.addEventListener("click", togglePause);
+fullscreenAction.addEventListener("click", () => {
+  unlockAudio();
+  enterFullscreen();
+});
+pauseAction.addEventListener("click", () => {
+  unlockAudio();
+  togglePause();
+});
 exitFullscreenAction.addEventListener("click", exitFullscreen);
 
 for (const button of languageButtons) {
@@ -190,6 +256,8 @@ window.addEventListener("keydown", (event) => {
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyP"].includes(code)) {
     event.preventDefault();
   }
+
+  unlockAudio();
 
   if (code === "Escape") {
     if (document.fullscreenElement) exitFullscreen();
@@ -222,9 +290,14 @@ document.addEventListener("fullscreenchange", syncFullscreenUi);
 canvas.addEventListener("pointerdown", (event) => {
   if (game.state === "paused") return;
   canvas.setPointerCapture(event.pointerId);
-  pointer.active = true;
-  updatePointer(event);
+  unlockAudio();
   if (game.state === "ready" || game.state === "over") startGame();
+  const point = eventWorldPoint(event);
+  pointer.active = true;
+  pointer.x = game.player.x;
+  pointer.y = game.player.y;
+  pointer.lastX = point.x;
+  pointer.lastY = point.y;
 });
 
 canvas.addEventListener("pointermove", (event) => {
@@ -250,6 +323,7 @@ function createGame(state) {
     shake: 0,
     powerSpawnTimer: 6,
     powerMessageTimer: 0,
+    stage: stageForElapsed(0).name,
     player: {
       x: WORLD.width / 2,
       y: WORLD.height / 2,
@@ -272,10 +346,13 @@ function startGame() {
   game = createGame("running");
   pointer.x = game.player.x;
   pointer.y = game.player.y;
+  pointer.lastX = game.player.x;
+  pointer.lastY = game.player.y;
   clearPauseOverlayNow();
   overlay.classList.add("is-hidden");
   syncActionButton();
   updateHud();
+  feedback("start");
 }
 
 function pauseGame() {
@@ -289,6 +366,7 @@ function pauseGame() {
   updatePauseOverlayPlacement();
   overlay.classList.add("is-paused");
   overlay.classList.remove("is-hidden");
+  feedback("pause");
 }
 
 function resumeGame() {
@@ -297,6 +375,7 @@ function resumeGame() {
   overlay.classList.add("is-hidden");
   syncActionButton();
   schedulePauseOverlayCleanup();
+  feedback("resume");
 }
 
 function togglePause() {
@@ -320,6 +399,7 @@ function endGame() {
   clearPauseOverlayNow();
   overlay.classList.remove("is-hidden");
   addBurst(game.player.x, game.player.y, 26, "danger");
+  feedback("impact");
 }
 
 function frame(timestamp) {
@@ -340,6 +420,7 @@ function frame(timestamp) {
 
 function updateGame(dt) {
   game.elapsed += dt;
+  updateDifficultyStage();
   game.score += dt * (10 + pressure() * 2);
   game.player.invuln = Math.max(0, game.player.invuln - dt);
   game.effects.shield = Math.max(0, game.effects.shield - dt);
@@ -351,8 +432,18 @@ function updateGame(dt) {
   spawnPowerups(dt);
   updateBullets(dt);
   updateParticles(dt);
+  enforcePerformanceBudget();
   checkCollisions();
   checkPowerupCollisions();
+}
+
+function updateDifficultyStage() {
+  const nextStage = stageForElapsed(game.elapsed).name;
+  if (game.stage === nextStage) return;
+
+  game.stage = nextStage;
+  addBurst(game.player.x, game.player.y, 14, "stage");
+  feedback("stage");
 }
 
 function movePlayer(dt) {
@@ -387,27 +478,28 @@ function spawnBullets(dt) {
   const d = difficulty();
   game.spawnTimer -= dt;
 
-  if (game.spawnTimer <= 0) {
+  if (game.spawnTimer <= 0 && game.bullets.length < d.bulletLimit) {
     game.spawnTimer = d.smallInterval;
     spawnBlueSmall(d);
   }
 
-  if (!d.heavyUnlocked) return;
+  if (!d.patternUnlocked) return;
 
   game.burstTimer -= dt;
-  if (game.burstTimer <= 0) {
+  if (game.burstTimer <= 0 && game.bullets.length < d.bulletLimit) {
     spawnPattern(d);
     game.burstTimer = d.patternInterval;
   }
 }
 
 function spawnPattern(d) {
-  if (d.arcUnlocked && Math.random() < 0.42) {
+  const roll = Math.random();
+  if (roll < d.arcChance) {
     spawnRedArc(d);
     return;
   }
 
-  if (d.redUnlocked && Math.random() < 0.58) {
+  if (roll < d.arcChance + d.redChance) {
     spawnRedBullet(d);
     return;
   }
@@ -473,8 +565,9 @@ function updateBullets(dt) {
     return bullet.x > -80 && bullet.x < WORLD.width + 80 && bullet.y > -80 && bullet.y < WORLD.height + 80;
   });
 
-  if (game.bullets.length > 280) {
-    game.bullets.splice(0, game.bullets.length - 280);
+  const limit = difficulty().bulletLimit;
+  if (game.bullets.length > limit) {
+    game.bullets.splice(0, game.bullets.length - limit);
   }
 }
 
@@ -509,6 +602,7 @@ function spawnPowerups(dt) {
     age: 0,
   });
   game.powerSpawnTimer = random(8, 12);
+  feedback("power-spawn");
 }
 
 function choosePowerupKind() {
@@ -532,6 +626,7 @@ function checkPowerupCollisions() {
 function activatePowerup(kind) {
   game.effects.lastPower = kind;
   game.powerMessageTimer = 1.4;
+  feedback(kind);
 
   if (kind === "clear") {
     const cleared = game.bullets.length;
@@ -547,6 +642,8 @@ function activatePowerup(kind) {
 }
 
 function addBurst(x, y, count, tone) {
+  const available = Math.max(0, PERFORMANCE_LIMITS.particles - game.particles.length);
+  count = Math.min(count, available);
   for (let i = 0; i < count; i += 1) {
     const angle = random(0, Math.PI * 2);
     const speed = random(80, 260);
@@ -571,6 +668,19 @@ function updateParticles(dt) {
     particle.life -= dt;
   }
   game.particles = game.particles.filter((particle) => particle.life > 0);
+  if (game.particles.length > PERFORMANCE_LIMITS.particles) {
+    game.particles.splice(0, game.particles.length - PERFORMANCE_LIMITS.particles);
+  }
+}
+
+function enforcePerformanceBudget() {
+  const d = difficulty();
+  if (game.bullets.length > d.bulletLimit) {
+    game.bullets.splice(0, game.bullets.length - d.bulletLimit);
+  }
+  if (game.particles.length > PERFORMANCE_LIMITS.particles) {
+    game.particles.splice(0, game.particles.length - PERFORMANCE_LIMITS.particles);
+  }
 }
 
 function draw() {
@@ -754,6 +864,7 @@ function particleColor(tone, alpha) {
   if (tone === "clear") return `rgba(255, 217, 105, ${alpha})`;
   if (tone === "shield") return `rgba(127, 255, 201, ${alpha})`;
   if (tone === "slow") return `rgba(154, 168, 255, ${alpha})`;
+  if (tone === "stage") return `rgba(111, 214, 255, ${alpha})`;
   return `rgba(127, 255, 201, ${alpha})`;
 }
 
@@ -913,10 +1024,22 @@ function clearPauseOverlayNow() {
   overlay.classList.remove(...PAUSE_OVERLAY_CLASSES);
 }
 
-function updatePointer(event) {
+function eventWorldPoint(event) {
   const rect = canvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * WORLD.width;
-  pointer.y = ((event.clientY - rect.top) / rect.height) * WORLD.height;
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * WORLD.width,
+    y: ((event.clientY - rect.top) / rect.height) * WORLD.height,
+  };
+}
+
+function updatePointer(event) {
+  const point = eventWorldPoint(event);
+  const dx = point.x - pointer.lastX;
+  const dy = point.y - pointer.lastY;
+  pointer.x = clamp(pointer.x + dx, 0, WORLD.width);
+  pointer.y = clamp(pointer.y + dy, 0, WORLD.height);
+  pointer.lastX = point.x;
+  pointer.lastY = point.y;
 }
 
 function fitCanvas() {
@@ -977,16 +1100,92 @@ function pressure() {
 }
 
 function difficulty() {
-  const elapsed = game.elapsed;
-  const speedScale = 1 + Math.min(elapsed / 70, 1.45);
+  const stage = stageForElapsed(game.elapsed);
+  const stageTime = Math.max(0, game.elapsed - stage.start);
+  const speedScale = Math.min(stage.speedMax, stage.speedBase + stageTime * stage.speedGain);
+  const tighten = Math.min(stageTime / 80, 0.28);
   return {
     speedScale,
-    heavyUnlocked: elapsed >= 10,
-    redUnlocked: elapsed >= 24,
-    arcUnlocked: elapsed >= 38,
-    smallInterval: random(Math.max(0.28, 0.82 - elapsed * 0.012), Math.max(0.36, 0.98 - elapsed * 0.012)),
-    patternInterval: random(Math.max(1.05, 3.2 - elapsed * 0.045), Math.max(1.35, 4.2 - elapsed * 0.048)),
+    patternUnlocked: stage.heavyChance + stage.redChance + stage.arcChance > 0,
+    arcChance: stage.arcChance,
+    redChance: stage.redChance,
+    heavyChance: stage.heavyChance,
+    bulletLimit: stage.bulletLimit,
+    smallInterval: random(Math.max(0.24, stage.smallInterval[0] - tighten), Math.max(0.32, stage.smallInterval[1] - tighten)),
+    patternInterval: random(Math.max(0.95, stage.patternInterval[0] - tighten * 2), Math.max(1.15, stage.patternInterval[1] - tighten * 2)),
   };
+}
+
+function stageForElapsed(elapsed) {
+  let stage = DIFFICULTY_STAGES[0];
+  for (const candidate of DIFFICULTY_STAGES) {
+    if (elapsed >= candidate.start) stage = candidate;
+  }
+  return stage;
+}
+
+function unlockAudio() {
+  if (audioContext) {
+    audioContext.resume?.();
+    return;
+  }
+
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return;
+  audioContext = new AudioContextCtor();
+}
+
+function feedback(kind) {
+  playSound(kind);
+  vibrate(kind);
+}
+
+function playSound(kind) {
+  if (!audioContext) return;
+
+  const sounds = {
+    start: [440, 0.08, "triangle", 0.04],
+    pause: [220, 0.06, "sine", 0.03],
+    resume: [520, 0.06, "triangle", 0.035],
+    impact: [90, 0.16, "sawtooth", 0.055],
+    stage: [660, 0.12, "triangle", 0.04],
+    clear: [760, 0.12, "square", 0.045],
+    shield: [520, 0.1, "sine", 0.04],
+    slow: [340, 0.12, "triangle", 0.04],
+    "power-spawn": [610, 0.07, "sine", 0.025],
+  };
+  const [frequency, duration, type, volume] = sounds[kind] || sounds.start;
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, now);
+  oscillator.frequency.exponentialRampToValueAtTime(Math.max(60, frequency * 0.72), now + duration);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(volume, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + duration + 0.02);
+}
+
+function vibrate(kind) {
+  if (!navigator.vibrate) return;
+  const patterns = {
+    start: 14,
+    pause: 8,
+    resume: 8,
+    impact: [28, 28, 42],
+    stage: [18, 24, 18],
+    clear: 18,
+    shield: 14,
+    slow: 14,
+    "power-spawn": 6,
+  };
+  navigator.vibrate(patterns[kind] || 8);
 }
 
 function randomEdgePoint() {
