@@ -1,6 +1,10 @@
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
+const shell = document.querySelector(".shell");
 const primaryAction = document.querySelector("#primaryAction");
+const fullscreenAction = document.querySelector("#fullscreenAction");
+const pauseAction = document.querySelector("#pauseAction");
+const exitFullscreenAction = document.querySelector("#exitFullscreenAction");
 const overlay = document.querySelector("#stateOverlay");
 const stateLabel = document.querySelector("#stateLabel");
 const stateTitle = document.querySelector("#stateTitle");
@@ -36,12 +40,15 @@ const TRANSLATIONS = {
     pause: "Pause",
     resume: "Resume",
     restart: "Restart",
+    enterFullscreen: "Fullscreen",
+    exitFullscreen: "Exit fullscreen",
+    pauseControl: "Pause",
     readyLabel: "Ready",
     readyTitle: "Stay inside the drift",
     readyHint: "Move with WASD, arrows, or drag inside the arena",
     pausedLabel: "Paused",
     pausedTitle: "Game is paused",
-    pausedHint: "P / Esc / resume",
+    pausedHint: "P / resume",
     impactLabel: "Impact",
     impactTitle: (score) => `Score ${score}`,
     impactHint: "Press Space or restart for another run.",
@@ -76,7 +83,7 @@ const TRANSLATIONS = {
     runLabel: "Run",
     runValue: "Space / button",
     pauseLabel: "Pause",
-    pauseValue: "P / Esc",
+    pauseValue: "P",
     rotateTitle: "Rotate to landscape",
     rotateHint: "Bullet Drift is designed for a wide playfield on phones.",
   },
@@ -93,12 +100,15 @@ const TRANSLATIONS = {
     pause: "暂停",
     resume: "继续",
     restart: "重新开始",
+    enterFullscreen: "全屏",
+    exitFullscreen: "退出全屏",
+    pauseControl: "暂停",
     readyLabel: "准备",
     readyTitle: "别被弹幕带走",
     readyHint: "用 WASD、方向键，或在场地内拖动来移动",
     pausedLabel: "暂停",
     pausedTitle: "游戏已暂停",
-    pausedHint: "P / Esc / 继续",
+    pausedHint: "P / 继续",
     impactLabel: "撞击",
     impactTitle: (score) => `得分 ${score}`,
     impactHint: "按空格或点击重新开始，再来一局。",
@@ -133,7 +143,7 @@ const TRANSLATIONS = {
     runLabel: "开局",
     runValue: "空格 / 按钮",
     pauseLabel: "暂停",
-    pauseValue: "P / Esc",
+    pauseValue: "P",
     rotateTitle: "请横屏游玩",
     rotateHint: "手机端需要宽场地，竖屏不会进入游戏布局。",
   },
@@ -163,6 +173,10 @@ primaryAction.addEventListener("click", () => {
   }
 });
 
+fullscreenAction.addEventListener("click", enterFullscreen);
+pauseAction.addEventListener("click", togglePause);
+exitFullscreenAction.addEventListener("click", exitFullscreen);
+
 for (const button of languageButtons) {
   button.addEventListener("click", () => {
     language = button.dataset.lang;
@@ -173,11 +187,16 @@ for (const button of languageButtons) {
 
 window.addEventListener("keydown", (event) => {
   const code = event.code;
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyP", "Escape"].includes(code)) {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyP"].includes(code)) {
     event.preventDefault();
   }
 
-  if (code === "KeyP" || code === "Escape") {
+  if (code === "Escape") {
+    if (document.fullscreenElement) exitFullscreen();
+    return;
+  }
+
+  if (code === "KeyP") {
     togglePause();
     return;
   }
@@ -197,6 +216,8 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("keyup", (event) => {
   keys.delete(event.code);
 });
+
+document.addEventListener("fullscreenchange", syncFullscreenUi);
 
 canvas.addEventListener("pointerdown", (event) => {
   if (game.state === "paused") return;
@@ -782,6 +803,7 @@ function applyLanguage() {
 
   syncActionButton();
   syncOverlay();
+  syncFullscreenUi();
   updateHud();
 }
 
@@ -795,6 +817,29 @@ function syncActionButton() {
   } else {
     primaryAction.textContent = t().start;
   }
+
+  const canTogglePause = game.state === "running" || game.state === "paused";
+  pauseAction.disabled = !canTogglePause;
+  pauseAction.classList.toggle("is-active", game.state === "paused");
+  pauseAction.setAttribute("aria-pressed", String(game.state === "paused"));
+  pauseAction.setAttribute("aria-label", game.state === "paused" ? t().resume : t().pauseControl);
+}
+
+function enterFullscreen() {
+  if (!document.fullscreenEnabled || document.fullscreenElement) return;
+  shell.requestFullscreen?.();
+}
+
+function exitFullscreen() {
+  if (!document.fullscreenElement) return;
+  document.exitFullscreen?.();
+}
+
+function syncFullscreenUi() {
+  const isFullscreen = Boolean(document.fullscreenElement);
+  document.body.classList.toggle("is-fullscreen", isFullscreen);
+  fullscreenAction.hidden = !document.fullscreenEnabled || isFullscreen;
+  exitFullscreenAction.hidden = !isFullscreen;
 }
 
 function syncOverlay() {

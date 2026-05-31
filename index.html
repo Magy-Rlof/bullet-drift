@@ -20,12 +20,21 @@
               <button class="language-option is-active" type="button" data-lang="en">EN</button>
               <button class="language-option" type="button" data-lang="zh">中文</button>
             </div>
+            <button id="fullscreenAction" class="action-button secondary-action" type="button" data-i18n="enterFullscreen">Fullscreen</button>
             <button id="primaryAction" class="action-button" type="button">Start run</button>
           </div>
         </div>
 
         <div class="stage-wrap">
           <canvas id="gameCanvas" width="960" height="540" data-i18n-aria="canvas" aria-label="Dodge the incoming bullets"></canvas>
+          <div class="fullscreen-controls">
+            <button id="pauseAction" class="icon-action pause-icon" type="button" data-i18n-aria="pauseControl" aria-label="Pause">
+              <span aria-hidden="true"></span>
+            </button>
+            <button id="exitFullscreenAction" class="icon-action exit-icon" type="button" data-i18n-aria="exitFullscreen" aria-label="Exit fullscreen">
+              <span aria-hidden="true"></span>
+            </button>
+          </div>
           <div id="stateOverlay" class="state-overlay">
             <div class="state-copy">
               <p id="stateLabel">Ready</p>
@@ -115,17 +124,61 @@
           </div>
           <div>
             <dt data-i18n="pauseLabel">Pause</dt>
-            <dd data-i18n="pauseValue">P / Esc</dd>
+            <dd data-i18n="pauseValue">P</dd>
           </div>
         </dl>
       </aside>
     </main>
 
     <div class="rotate-overlay" aria-live="polite">
-      <div>
-        <span aria-hidden="true"></span>
-        <h2 data-i18n="rotateTitle">Rotate to landscape</h2>
-        <p data-i18n="rotateHint">Bullet Drift is designed for a wide playfield on phones.</p>
+      <div class="rotate-content">
+        <div class="rotate-message">
+          <span aria-hidden="true"></span>
+          <h2 data-i18n="rotateTitle">Rotate to landscape</h2>
+          <p data-i18n="rotateHint">Bullet Drift is designed for a wide playfield on phones.</p>
+        </div>
+        <div class="portrait-guide">
+          <div class="status-block">
+            <span class="status-dot"></span>
+            <div>
+              <p class="panel-label" data-i18n="objectiveLabel">Objective</p>
+              <strong data-i18n="objectiveText">Survive the bullet field as long as possible.</strong>
+            </div>
+          </div>
+          <div class="rules">
+            <p data-i18n="ruleOne">Near misses keep the run tense; distance and calm movement matter more than speed.</p>
+            <p data-i18n="ruleTwo">Patterns accelerate over time. Restart is instant after impact.</p>
+          </div>
+          <div class="power-guide" data-i18n-aria="powerGuide" aria-label="Power-up guide">
+            <p class="panel-label" data-i18n="powerGuideLabel">Power-ups</p>
+            <div>
+              <span>C</span>
+              <strong data-i18n="powerClearGuide">Clear hostile bullets</strong>
+            </div>
+            <div>
+              <span>S</span>
+              <strong data-i18n="powerShieldGuide">Temporary shield</strong>
+            </div>
+            <div>
+              <span>L</span>
+              <strong data-i18n="powerSlowGuide">Slow hostile bullets</strong>
+            </div>
+          </div>
+          <dl class="control-list">
+            <div>
+              <dt data-i18n="touchLabel">Touch</dt>
+              <dd data-i18n="touchValue">Drag in arena</dd>
+            </div>
+            <div>
+              <dt data-i18n="runLabel">Run</dt>
+              <dd data-i18n="runValue">Space / button</dd>
+            </div>
+            <div>
+              <dt data-i18n="pauseLabel">Pause</dt>
+              <dd data-i18n="pauseValue">P</dd>
+            </div>
+          </dl>
+        </div>
       </div>
     </div>
 
