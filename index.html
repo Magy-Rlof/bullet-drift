@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bullet Drift</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="game-panel" data-i18n-aria="gameRegion" aria-label="Bullet Drift game">
+        <div class="topbar">
+          <div>
+            <p class="kicker" data-i18n="kicker">Survival run</p>
+            <h1 data-i18n="title">Bullet Drift</h1>
+          </div>
+          <div class="topbar-actions">
+            <div class="language-switch" data-i18n-aria="languageSwitch" aria-label="Language">
+              <button class="language-option is-active" type="button" data-lang="en">EN</button>
+              <button class="language-option" type="button" data-lang="zh">中文</button>
+            </div>
+            <button id="primaryAction" class="action-button" type="button">Start run</button>
+          </div>
+        </div>
+
+        <div class="stage-wrap">
+          <canvas id="gameCanvas" width="960" height="540" data-i18n-aria="canvas" aria-label="Dodge the incoming bullets"></canvas>
+          <div id="stateOverlay" class="state-overlay">
+            <div class="state-copy">
+              <p id="stateLabel">Ready</p>
+              <h2 id="stateTitle">Stay inside the drift.</h2>
+              <span id="stateHint">Move with WASD, arrows, or drag inside the arena.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud" aria-live="polite">
+          <div class="metric">
+            <span data-i18n="scoreLabel">Score</span>
+            <strong id="scoreValue">0</strong>
+          </div>
+          <div class="metric">
+            <span data-i18n="bestLabel">Best</span>
+            <strong id="bestValue">0</strong>
+          </div>
+          <div class="metric">
+            <span data-i18n="timeLabel">Time</span>
+            <strong id="timeValue">0.0s</strong>
+          </div>
+          <div class="metric">
+            <span data-i18n="pressureLabel">Pressure</span>
+            <strong id="pressureValue">1.0x</strong>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel" data-i18n-aria="sidePanel" aria-label="Game status and controls">
+        <div class="status-block">
+          <span class="status-dot"></span>
+          <div>
+            <p class="panel-label" data-i18n="objectiveLabel">Objective</p>
+            <strong data-i18n="objectiveText">Survive the bullet field as long as possible.</strong>
+          </div>
+        </div>
+        <div class="rules">
+          <p data-i18n="ruleOne">Near misses keep the run tense; distance and calm movement matter more than speed.</p>
+          <p data-i18n="ruleTwo">Patterns accelerate over time. Restart is instant after impact.</p>
+        </div>
+        <dl class="control-list">
+          <div>
+            <dt data-i18n="keyboardLabel">Keyboard</dt>
+            <dd data-i18n="keyboardValue">WASD / arrows</dd>
+          </div>
+          <div>
+            <dt data-i18n="touchLabel">Touch</dt>
+            <dd data-i18n="touchValue">Drag in arena</dd>
+          </div>
+          <div>
+            <dt data-i18n="runLabel">Run</dt>
+            <dd data-i18n="runValue">Space / button</dd>
+          </div>
+        </dl>
+      </aside>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>
