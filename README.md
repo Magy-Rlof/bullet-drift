@@ -1,34 +1,36 @@
-# Bullet Drift
+# 弹幕漂移
 
-A small static Canvas game about dodging bullet patterns and surviving for a high score.
+一个静态 Canvas 网页小游戏。玩家控制绿色主角球，在逐步增强的弹幕中尽可能存活更久，拾取道具改变局势，并争取更高分。
 
-## Run
+## 运行
 
-Open `index.html` in a browser, or serve this folder with any static file server.
-
-For local testing with Node:
+可以直接用浏览器打开 `index.html`。本地测试建议运行：
 
 ```bash
 node server.mjs
 ```
 
-Then open `http://127.0.0.1:4173`.
+然后打开：
 
-## Controls
+```text
+http://127.0.0.1:4173
+```
 
-- Move: `WASD` or arrow keys
-- Start / restart: `Space` or the on-screen button
-- Pause / resume: `P`, `Esc`, or the on-screen button
-- Touch or pointer: drag inside the arena
+## 操作
 
-## Power-Ups
+- 移动：`WASD` 或方向键
+- 开始 / 重新开始：`Space` 或页面按钮
+- 暂停 / 继续：`P`、`Esc` 或页面按钮
+- 触控 / 指针：在场地内拖动
 
-- `C`: clears hostile bullets from the arena
-- `S`: grants a short shield
-- `L`: slows hostile bullets for a short window
+## 道具
 
-Timed effects show a compact numeric countdown near the player while active.
+- `C`：清除场上敌对球
+- `S`：短时间免疫碰撞
+- `L`：大幅减速敌对球
 
-## Language
+时效道具会在主角球附近显示紧凑数字倒计时，数字颜色与道具球颜色一致。
 
-Use the `EN` / `中文` switch in the top bar. The game remembers the last selected language in this browser.
+## 语言
+
+顶部 `EN` / `中文` 可以切换英文和中文。游戏会在当前浏览器中记住上次选择。

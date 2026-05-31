@@ -1,37 +1,72 @@
-# Bullet Drift Product Brief
+# 弹幕漂移产品说明
 
-## Goal
+## 产品目标
 
-Build a small personal browser game where the player survives incoming bullet patterns, earns score over time, loses on collision, and can restart immediately.
+做一个短局、低启动成本的个人网页小游戏。玩家通过移动主角球躲避弹幕，在存活时间中获得分数，并通过拾取道具制造喘息和反转机会。
 
-## MVP Scope
+## 产品类型
 
-- Static web page that can run without a backend.
-- Canvas-based dodge gameplay.
-- Keyboard movement on desktop.
-- Pointer and touch movement for mobile.
-- Survival score, elapsed time, current wave pressure, and local high score.
-- Failure state with final score and restart.
-- Chinese / English language switch with local preference.
-- Staged difficulty curve: small blue bullets first, then large blue bullets, then red bullets, then red arc patterns.
-- Pause and resume without resetting the active run.
-- Collectible power-up balls: clear bullets, temporary shield, and enemy slowdown.
-- Timed power-up effects show a compact numeric countdown that follows the player.
+浏览器游戏 / 互动玩具。当前实现是静态网页，不依赖后端。
 
-## Out Of Scope For First Version
+## 核心循环
 
-- Accounts, online leaderboard, server storage, monetization, story mode, unlock systems, and custom level editor.
+1. 玩家开始一局。
+2. 敌对球从场边进入，数量、速度和模式逐步增强。
+3. 玩家移动躲避，分数随存活时间增长。
+4. 场内偶尔出现道具球，玩家可选择冒险拾取。
+5. 碰撞失败后显示结算，可立刻重新开始。
 
-## Acceptance Criteria
+## 当前范围
 
-- Opening `index.html` shows a playable first screen.
-- Starting the game spawns hazards within 1 second.
-- Player movement visibly responds to keyboard and pointer/touch input.
-- Score increases while alive and stops when defeated.
-- Collision with a bullet changes the game to a failed state.
-- Restart resets the run without reloading the page.
-- Highest score persists with `localStorage`.
-- Language choice switches all visible UI copy between Chinese and English and persists with `localStorage`.
-- During a run, `P`, `Esc`, or the top action button pauses the game; resume continues from the same score, timer, player position, and bullet layout.
-- Power-up balls spawn during play and trigger their effect when the player touches them; the HUD shows the active or upcoming power state.
-- The side panel explains each power-up type so players can learn the symbols without guessing.
+- Canvas 2D 弹幕躲避玩法。
+- 键盘、指针和触控移动。
+- 分数、存活时间、压力、最高分和道具状态 HUD。
+- 失败重开。
+- 暂停和继续，恢复后保持同一局的主角位置、弹幕布局、分数和时间。
+- 中文 / 英文切换，语言偏好保存在 `localStorage`。
+- 难度梯度：少量慢速蓝色小球，蓝色大球，红色单球，红色弧形弹幕。
+- 道具球：清场、护盾、减速。
+- 时效道具使用跟随主角的数字倒计时反馈。
+- 侧栏说明道具符号，避免玩家猜测。
+
+## 产品判断
+
+“短冲刺”暂不进入当前版本。它能增加主动操作，但会把游戏重心推向动作技巧，并增加移动端操作设计成本。
+
+当前选择道具球系统，因为它更直接改变弹幕局势：
+
+- 清场：提供即时释放压力的强反馈。
+- 护盾：允许玩家短时间穿越危险区域。
+- 减速：延长决策窗口，提升策略感。
+
+这三种道具覆盖了即时、保护、节奏控制三类效果，学习成本低，适合作为第一批道具。
+
+## 候选道具池
+
+后续可以评估，但不应一次性加入：
+
+- 分数倍率：提高风险收益，但可能鼓励拖延刷分。
+- 磁吸道具：降低拾取成本，但可能削弱走位意义。
+- 时间冻结：强反馈明确，但和减速效果接近。
+- 一次性护盾：比时限护盾更容易平衡。
+- 高风险诅咒道具：适合后期加入，不适合当前 MVP。
+
+## 验收标准
+
+- 打开 `index.html` 或本地服务器页面后第一屏可直接开始游戏。
+- 开始后敌对球会生成并进入场地。
+- 玩家移动对键盘、指针和触控输入有明显响应。
+- 存活时分数增长，失败后停止增长。
+- 碰撞敌对球会进入失败态。
+- 失败后可以不刷新页面直接重开。
+- 最高分保存在 `localStorage`。
+- 语言切换会更新可见 UI 文案和辅助标签，并保存在 `localStorage`。
+- 暂停时游戏状态冻结，继续后恢复同一局。
+- 道具球可拾取并触发对应效果。
+- 时效道具倒计时跟随主角显示，不引发 HUD 布局抖动。
+
+## 暂不做
+
+- 账号、在线排行榜、服务器存档。
+- 关卡编辑器、剧情模式、商店或成长系统。
+- 复杂移动端手势技能。

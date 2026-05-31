@@ -1,29 +1,54 @@
-# Bullet Drift Design Notes
+# 弹幕漂移设计说明
 
-## Product Type
+## 界面类型
 
-Browser game / interactive toy.
+浏览器游戏 / 互动玩具。第一屏应该直接可玩，不做营销式落地页。
 
-## Scene
+## 使用场景
 
-A player uses this in short breaks on a laptop or phone, likely in mixed ambient light, expecting fast feedback and no setup.
+用户在电脑或手机上短时间游玩，通常只想快速开始一局。界面需要明确、紧凑、低解释成本，并且不能遮挡场地中的危险信息。
 
-## Visual Direction
+## 视觉方向
 
-- Compact arcade command surface.
-- Dark high-contrast playfield with saturated coral, mint, and electric cyan accents.
-- Functional HUD, no landing-page hero.
-- Motion should communicate danger and momentum, not decorate static content.
+- 深色高对比街机感。
+- 主角使用绿色，普通敌对球使用蓝色，危险敌对球使用红色。
+- 道具颜色固定：`C` 清场为黄色，`S` 护盾为绿色，`L` 减速为紫色。
+- HUD 保持稳定尺寸，避免因为文本变化产生抖动。
 
-## Interface Principles
+## 核心状态
 
-- First screen is playable.
-- Controls remain visible but not verbose.
-- Important state uses shape, color, and text together.
-- Desktop and mobile layouts keep the arena stable and avoid text overlap.
+- 准备态：显示标题、目标提示和开始操作。
+- 运行态：显示场地、主角、敌对球、道具球和 HUD。
+- 暂停态：保留完整战场信息，用小型状态芯片提示暂停，并避开主角位置。
+- 道具生效态：时效道具在主角附近显示数字倒计时，不使用大段文字覆盖场地。
+- 失败态：停止玩法，清理道具球，显示分数和重开提示。
 
-## Core States
+## 设计决策
 
-- Ready: title, short objective, start action, high score.
-- Running: arena, player, bullets, live score, survival time, pressure.
-- Failed: final score, high score, restart action.
+### 暂停提示
+
+暂停时不能隐藏主角或敌对球，因为玩家需要恢复前判断相对位置。提示层应避让主角，并保持轻量，不固定压在场地中央。
+
+### 道具说明
+
+道具符号 `C/S/L` 对新玩家不是天然可理解的，所以侧栏提供简短说明。说明保持紧凑，避免挤占操作区。
+
+### 道具倒计时
+
+时效道具不使用顶部横幅。横幅会占用场地视野，并把注意力从主角附近移走。当前采用跟随主角的纯数字倒计时，颜色与道具一致，便于玩家在观察主角时顺带读到剩余时间。
+
+### 双语界面
+
+中英文切换影响可见文本、按钮、HUD、侧栏说明和 aria 标签。语言选择保存在浏览器本地。
+
+## 响应式原则
+
+- 桌面端保持主场地和侧栏并排。
+- 窄屏下侧栏下移，HUD 两列排列。
+- 固定格式元素使用稳定尺寸，避免文本变化导致画面跳动。
+
+## 后续 UI 风险
+
+- 道具继续增多时，侧栏说明可能变长，需要分组或折叠。
+- HUD 指标超过五项后，移动端可能拥挤。
+- 如果加入更多状态效果，需要统一跟随主角的倒计时排布规则。
