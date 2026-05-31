@@ -5,6 +5,10 @@ const overlay = document.querySelector("#stateOverlay");
 const stateLabel = document.querySelector("#stateLabel");
 const stateTitle = document.querySelector("#stateTitle");
 const stateHint = document.querySelector("#stateHint");
+const resultStats = document.querySelector("#resultStats");
+const resultScoreValue = document.querySelector("#resultScoreValue");
+const resultTimeValue = document.querySelector("#resultTimeValue");
+const resultBestValue = document.querySelector("#resultBestValue");
 const scoreValue = document.querySelector("#scoreValue");
 const bestValue = document.querySelector("#bestValue");
 const timeValue = document.querySelector("#timeValue");
@@ -41,6 +45,9 @@ const TRANSLATIONS = {
     impactLabel: "Impact",
     impactTitle: (score) => `Score ${score}`,
     impactHint: "Press Space or restart for another run.",
+    resultScoreLabel: "Score",
+    resultTimeLabel: "Time",
+    resultBestLabel: "Best",
     scoreLabel: "Score",
     bestLabel: "Best",
     timeLabel: "Time",
@@ -93,6 +100,9 @@ const TRANSLATIONS = {
     impactLabel: "撞击",
     impactTitle: (score) => `得分 ${score}`,
     impactHint: "按空格或点击重新开始，再来一局。",
+    resultScoreLabel: "得分",
+    resultTimeLabel: "时间",
+    resultBestLabel: "最高",
     scoreLabel: "得分",
     bestLabel: "最高",
     timeLabel: "时间",
@@ -274,6 +284,7 @@ function togglePause() {
 function endGame() {
   game.state = "over";
   game.shake = 10;
+  game.bullets = [];
   game.powerups = [];
   bestScore = Math.max(bestScore, Math.floor(game.score));
   localStorage.setItem("bullet-drift-best", String(bestScore));
@@ -787,8 +798,12 @@ function syncOverlay() {
     stateLabel.textContent = copy.impactLabel;
     stateTitle.textContent = copy.impactTitle(Math.floor(game.score));
     stateHint.textContent = copy.impactHint;
+    syncResultStats();
+    resultStats.classList.remove("is-hidden");
     return;
   }
+
+  resultStats.classList.add("is-hidden");
 
   if (game.state === "paused") {
     stateLabel.textContent = copy.pausedLabel;
@@ -801,6 +816,13 @@ function syncOverlay() {
   stateLabel.textContent = copy.readyLabel;
   stateTitle.textContent = copy.readyTitle;
   stateHint.textContent = copy.readyHint;
+}
+
+function syncResultStats() {
+  const score = Math.floor(game.score);
+  resultScoreValue.textContent = String(score);
+  resultTimeValue.textContent = t().timeValue(game.elapsed);
+  resultBestValue.textContent = String(bestScore);
 }
 
 function t() {

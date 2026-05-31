@@ -291,6 +291,44 @@ canvas {
   text-wrap: pretty;
 }
 
+.result-stats {
+  width: min(390px, 100%);
+  margin: 16px auto 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  text-shadow: none;
+}
+
+.result-stats.is-hidden {
+  display: none;
+}
+
+.result-stats div {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: oklch(15% 0.035 245 / 0.78);
+}
+
+.result-stats span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--soft);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.result-stats strong {
+  display: block;
+  color: var(--ink);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .state-overlay.is-paused .state-copy span {
   color: var(--muted);
   font-size: 0.82rem;
@@ -470,6 +508,10 @@ canvas {
   }
 
   .hud {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .result-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
