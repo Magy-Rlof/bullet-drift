@@ -77,6 +77,8 @@ const TRANSLATIONS = {
     runValue: "Space / button",
     pauseLabel: "Pause",
     pauseValue: "P / Esc",
+    rotateTitle: "Rotate to landscape",
+    rotateHint: "Bullet Drift is designed for a wide playfield on phones.",
   },
   zh: {
     documentTitle: "弹幕漂移",
@@ -132,10 +134,13 @@ const TRANSLATIONS = {
     runValue: "空格 / 按钮",
     pauseLabel: "暂停",
     pauseValue: "P / Esc",
+    rotateTitle: "请横屏游玩",
+    rotateHint: "手机端需要宽场地，竖屏不会进入游戏布局。",
   },
 };
 
-const WORLD = { width: 960, height: 540 };
+const BASE_WORLD = { width: 960, height: 540 };
+const WORLD = { ...BASE_WORLD };
 const keys = new Set();
 const pointer = { active: false, x: WORLD.width / 2, y: WORLD.height / 2 };
 
@@ -548,7 +553,7 @@ function updateParticles(dt) {
 }
 
 function draw() {
-  fitCanvas();
+  if (!fitCanvas()) return;
   ctx.save();
   ctx.clearRect(0, 0, WORLD.width, WORLD.height);
 
@@ -873,6 +878,10 @@ function fitCanvas() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const displayWidth = canvas.clientWidth;
   const displayHeight = canvas.clientHeight;
+  if (!displayWidth || !displayHeight) return false;
+
+  syncWorldToCanvas(displayWidth, displayHeight);
+
   const targetWidth = Math.round(displayWidth * dpr);
   const targetHeight = Math.round(displayHeight * dpr);
 
@@ -882,6 +891,40 @@ function fitCanvas() {
   }
 
   ctx.setTransform(targetWidth / WORLD.width, 0, 0, targetHeight / WORLD.height, 0, 0);
+  return true;
+}
+
+function syncWorldToCanvas(displayWidth, displayHeight) {
+  const aspect = displayWidth / displayHeight || (BASE_WORLD.width / BASE_WORLD.height);
+  const nextWidth = Math.max(BASE_WORLD.width, BASE_WORLD.height * aspect);
+  const nextHeight = BASE_WORLD.height;
+
+  if (Math.abs(nextWidth - WORLD.width) < 0.5 && Math.abs(nextHeight - WORLD.height) < 0.5) return;
+
+  const previousWidth = WORLD.width;
+  const previousHeight = WORLD.height;
+  const scaleX = nextWidth / previousWidth;
+  const scaleY = nextHeight / previousHeight;
+
+  WORLD.width = nextWidth;
+  WORLD.height = nextHeight;
+
+  scaleGameToWorld(scaleX, scaleY);
+}
+
+function scaleGameToWorld(scaleX, scaleY) {
+  if (!game) return;
+
+  game.player.x = clamp(game.player.x * scaleX, game.player.radius + 8, WORLD.width - game.player.radius - 8);
+  game.player.y = clamp(game.player.y * scaleY, game.player.radius + 8, WORLD.height - game.player.radius - 8);
+
+  pointer.x = clamp(pointer.x * scaleX, 0, WORLD.width);
+  pointer.y = clamp(pointer.y * scaleY, 0, WORLD.height);
+
+  for (const item of [...game.bullets, ...game.powerups, ...game.particles]) {
+    item.x *= scaleX;
+    item.y *= scaleY;
+  }
 }
 
 function pressure() {
