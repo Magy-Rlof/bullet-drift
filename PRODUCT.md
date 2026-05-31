@@ -14,6 +14,7 @@ Build a small personal browser game where the player survives incoming bullet pa
 - Failure state with final score and restart.
 - Chinese / English language switch with local preference.
 - Staged difficulty curve: small blue bullets first, then large blue bullets, then red bullets, then red arc patterns.
+- Pause and resume without resetting the active run.
 
 ## Out Of Scope For First Version
 
@@ -29,3 +30,4 @@ Build a small personal browser game where the player survives incoming bullet pa
 - Restart resets the run without reloading the page.
 - Highest score persists with `localStorage`.
 - Language choice switches all visible UI copy between Chinese and English and persists with `localStorage`.
+- During a run, `P`, `Esc`, or the top action button pauses the game; resume continues from the same score, timer, player position, and bullet layout.

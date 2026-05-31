@@ -10,6 +10,8 @@ const bestValue = document.querySelector("#bestValue");
 const timeValue = document.querySelector("#timeValue");
 const pressureValue = document.querySelector("#pressureValue");
 const languageButtons = document.querySelectorAll("[data-lang]");
+const PAUSE_PLACEMENT_CLASSES = ["pause-top-left", "pause-top-right", "pause-bottom-left", "pause-bottom-right"];
+const PAUSE_OVERLAY_CLASSES = ["is-paused", ...PAUSE_PLACEMENT_CLASSES];
 
 const TRANSLATIONS = {
   en: {
@@ -21,11 +23,15 @@ const TRANSLATIONS = {
     kicker: "Survival run",
     title: "Bullet Drift",
     start: "Start run",
-    running: "Running",
+    pause: "Pause",
+    resume: "Resume",
     restart: "Restart",
     readyLabel: "Ready",
     readyTitle: "Stay inside the drift",
     readyHint: "Move with WASD, arrows, or drag inside the arena",
+    pausedLabel: "Paused",
+    pausedTitle: "Game is paused",
+    pausedHint: "P / Esc / resume",
     impactLabel: "Impact",
     impactTitle: (score) => `Score ${score}`,
     impactHint: "Press Space or restart for another run.",
@@ -45,6 +51,8 @@ const TRANSLATIONS = {
     touchValue: "Drag in arena",
     runLabel: "Run",
     runValue: "Space / button",
+    pauseLabel: "Pause",
+    pauseValue: "P / Esc",
   },
   zh: {
     documentTitle: "弹幕漂移",
@@ -55,11 +63,15 @@ const TRANSLATIONS = {
     kicker: "生存挑战",
     title: "弹幕漂移",
     start: "开始",
-    running: "进行中",
+    pause: "暂停",
+    resume: "继续",
     restart: "重新开始",
     readyLabel: "准备",
     readyTitle: "别被弹幕带走",
     readyHint: "用 WASD、方向键，或在场地内拖动来移动",
+    pausedLabel: "暂停",
+    pausedTitle: "游戏已暂停",
+    pausedHint: "P / Esc / 继续",
     impactLabel: "撞击",
     impactTitle: (score) => `得分 ${score}`,
     impactHint: "按空格或点击重新开始，再来一局。",
@@ -79,6 +91,8 @@ const TRANSLATIONS = {
     touchValue: "场地内拖动",
     runLabel: "开局",
     runValue: "空格 / 按钮",
+    pauseLabel: "暂停",
+    pauseValue: "P / Esc",
   },
 };
 
@@ -89,14 +103,20 @@ const pointer = { active: false, x: WORLD.width / 2, y: WORLD.height / 2 };
 let bestScore = Number(localStorage.getItem("bullet-drift-best") || 0);
 let language = localStorage.getItem("bullet-drift-language") || preferredLanguage();
 let lastFrame = 0;
+let pauseOverlayCleanupTimer = 0;
 let game = createGame("ready");
 
 applyLanguage();
 requestAnimationFrame(frame);
 
 primaryAction.addEventListener("click", () => {
-  if (game.state === "running") return;
-  startGame();
+  if (game.state === "running") {
+    pauseGame();
+  } else if (game.state === "paused") {
+    resumeGame();
+  } else {
+    startGame();
+  }
 });
 
 for (const button of languageButtons) {
@@ -109,13 +129,24 @@ for (const button of languageButtons) {
 
 window.addEventListener("keydown", (event) => {
   const code = event.code;
-  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD", "Space"].includes(code)) {
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyW", "KeyA", "KeyS", "KeyD", "Space", "KeyP", "Escape"].includes(code)) {
     event.preventDefault();
   }
-  if (code === "Space" && game.state !== "running") {
-    startGame();
+
+  if (code === "KeyP" || code === "Escape") {
+    togglePause();
     return;
   }
+
+  if (code === "Space") {
+    if (game.state === "paused") {
+      resumeGame();
+    } else if (game.state !== "running") {
+      startGame();
+    }
+    return;
+  }
+
   keys.add(code);
 });
 
@@ -124,10 +155,11 @@ window.addEventListener("keyup", (event) => {
 });
 
 canvas.addEventListener("pointerdown", (event) => {
+  if (game.state === "paused") return;
   canvas.setPointerCapture(event.pointerId);
   pointer.active = true;
   updatePointer(event);
-  if (game.state !== "running") startGame();
+  if (game.state === "ready" || game.state === "over") startGame();
 });
 
 canvas.addEventListener("pointermove", (event) => {
@@ -167,10 +199,39 @@ function startGame() {
   game = createGame("running");
   pointer.x = game.player.x;
   pointer.y = game.player.y;
+  clearPauseOverlayNow();
   overlay.classList.add("is-hidden");
-  primaryAction.disabled = true;
   syncActionButton();
   updateHud();
+}
+
+function pauseGame() {
+  if (game.state !== "running") return;
+  game.state = "paused";
+  pointer.active = false;
+  keys.clear();
+  cancelPauseOverlayCleanup();
+  syncActionButton();
+  syncOverlay();
+  updatePauseOverlayPlacement();
+  overlay.classList.add("is-paused");
+  overlay.classList.remove("is-hidden");
+}
+
+function resumeGame() {
+  if (game.state !== "paused") return;
+  game.state = "running";
+  overlay.classList.add("is-hidden");
+  syncActionButton();
+  schedulePauseOverlayCleanup();
+}
+
+function togglePause() {
+  if (game.state === "running") {
+    pauseGame();
+  } else if (game.state === "paused") {
+    resumeGame();
+  }
 }
 
 function endGame() {
@@ -179,9 +240,9 @@ function endGame() {
   bestScore = Math.max(bestScore, Math.floor(game.score));
   localStorage.setItem("bullet-drift-best", String(bestScore));
   bestValue.textContent = String(bestScore);
-  primaryAction.disabled = false;
   syncActionButton();
   syncOverlay();
+  clearPauseOverlayNow();
   overlay.classList.remove("is-hidden");
   addBurst(game.player.x, game.player.y, 26, "danger");
 }
@@ -193,7 +254,7 @@ function frame(timestamp) {
 
   if (game.state === "running") {
     updateGame(dt);
-  } else {
+  } else if (game.state !== "paused") {
     updateParticles(dt);
   }
 
@@ -391,7 +452,7 @@ function draw() {
   drawArena();
   drawBullets();
   drawParticles();
-  if (game.state === "running") {
+  if (game.state === "running" || game.state === "paused") {
     drawPlayer();
   }
   ctx.restore();
@@ -505,7 +566,9 @@ function applyLanguage() {
 
 function syncActionButton() {
   if (game.state === "running") {
-    primaryAction.textContent = t().running;
+    primaryAction.textContent = t().pause;
+  } else if (game.state === "paused") {
+    primaryAction.textContent = t().resume;
   } else if (game.state === "over") {
     primaryAction.textContent = t().restart;
   } else {
@@ -522,6 +585,14 @@ function syncOverlay() {
     return;
   }
 
+  if (game.state === "paused") {
+    stateLabel.textContent = copy.pausedLabel;
+    stateTitle.textContent = copy.pausedTitle;
+    stateHint.textContent = copy.pausedHint;
+    updatePauseOverlayPlacement();
+    return;
+  }
+
   stateLabel.textContent = copy.readyLabel;
   stateTitle.textContent = copy.readyTitle;
   stateHint.textContent = copy.readyHint;
@@ -533,6 +604,36 @@ function t() {
 
 function preferredLanguage() {
   return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+function updatePauseOverlayPlacement() {
+  overlay.classList.remove(...PAUSE_PLACEMENT_CLASSES);
+  if (game.state !== "paused") return;
+
+  const vertical = game.player.y < WORLD.height / 2 ? "bottom" : "top";
+  const horizontal = game.player.x < WORLD.width / 2 ? "right" : "left";
+  overlay.classList.add(`pause-${vertical}-${horizontal}`);
+}
+
+function schedulePauseOverlayCleanup() {
+  cancelPauseOverlayCleanup();
+  pauseOverlayCleanupTimer = window.setTimeout(() => {
+    if (game.state === "running") {
+      overlay.classList.remove(...PAUSE_OVERLAY_CLASSES);
+    }
+    pauseOverlayCleanupTimer = 0;
+  }, 190);
+}
+
+function cancelPauseOverlayCleanup() {
+  if (!pauseOverlayCleanupTimer) return;
+  window.clearTimeout(pauseOverlayCleanupTimer);
+  pauseOverlayCleanupTimer = 0;
+}
+
+function clearPauseOverlayNow() {
+  cancelPauseOverlayCleanup();
+  overlay.classList.remove(...PAUSE_OVERLAY_CLASSES);
 }
 
 function updatePointer(event) {

@@ -18,6 +18,7 @@ Then open `http://127.0.0.1:4173`.
 
 - Move: `WASD` or arrow keys
 - Start / restart: `Space` or the on-screen button
+- Pause / resume: `P`, `Esc`, or the on-screen button
 - Touch or pointer: drag inside the arena
 
 ## Language
