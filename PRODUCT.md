@@ -15,6 +15,8 @@ Build a small personal browser game where the player survives incoming bullet pa
 - Chinese / English language switch with local preference.
 - Staged difficulty curve: small blue bullets first, then large blue bullets, then red bullets, then red arc patterns.
 - Pause and resume without resetting the active run.
+- Collectible power-up balls: clear bullets, temporary shield, and enemy slowdown.
+- Timed power-up effects show a compact numeric countdown that follows the player.
 
 ## Out Of Scope For First Version
 
@@ -31,3 +33,5 @@ Build a small personal browser game where the player survives incoming bullet pa
 - Highest score persists with `localStorage`.
 - Language choice switches all visible UI copy between Chinese and English and persists with `localStorage`.
 - During a run, `P`, `Esc`, or the top action button pauses the game; resume continues from the same score, timer, player position, and bullet layout.
+- Power-up balls spawn during play and trigger their effect when the player touches them; the HUD shows the active or upcoming power state.
+- The side panel explains each power-up type so players can learn the symbols without guessing.

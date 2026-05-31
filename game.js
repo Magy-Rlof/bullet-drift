@@ -9,9 +9,14 @@ const scoreValue = document.querySelector("#scoreValue");
 const bestValue = document.querySelector("#bestValue");
 const timeValue = document.querySelector("#timeValue");
 const pressureValue = document.querySelector("#pressureValue");
+const powerValue = document.querySelector("#powerValue");
 const languageButtons = document.querySelectorAll("[data-lang]");
 const PAUSE_PLACEMENT_CLASSES = ["pause-top-left", "pause-top-right", "pause-bottom-left", "pause-bottom-right"];
 const PAUSE_OVERLAY_CLASSES = ["is-paused", ...PAUSE_PLACEMENT_CLASSES];
+const POWER_DURATIONS = {
+  shield: 4.2,
+  slow: 5.2,
+};
 
 const TRANSLATIONS = {
   en: {
@@ -39,8 +44,19 @@ const TRANSLATIONS = {
     bestLabel: "Best",
     timeLabel: "Time",
     pressureLabel: "Pressure",
+    powerLabel: "Power",
     timeValue: (seconds) => `${seconds.toFixed(1)}s`,
     pressureValue: (value) => `${value.toFixed(1)}x`,
+    powerReady: "Ready",
+    powerAvailable: "Grab",
+    powerWaiting: (seconds) => `${seconds.toFixed(0)}s`,
+    powerClear: "Cleared",
+    powerShield: (seconds) => `Shield ${seconds.toFixed(1)}s`,
+    powerSlow: (seconds) => `Slow ${seconds.toFixed(1)}s`,
+    powerGuideLabel: "Power-ups",
+    powerClearGuide: "Clears hostile bullets",
+    powerShieldGuide: "Blocks collision briefly",
+    powerSlowGuide: "Slows hostile bullets",
     objectiveLabel: "Objective",
     objectiveText: "Survive the bullet field as long as possible.",
     ruleOne: "Near misses keep the run tense; distance and calm movement matter more than speed.",
@@ -79,8 +95,19 @@ const TRANSLATIONS = {
     bestLabel: "最高",
     timeLabel: "时间",
     pressureLabel: "压力",
+    powerLabel: "道具",
     timeValue: (seconds) => `${seconds.toFixed(1)} 秒`,
     pressureValue: (value) => `${value.toFixed(1)}x`,
+    powerReady: "待命",
+    powerAvailable: "可拾取",
+    powerWaiting: (seconds) => `${seconds.toFixed(0)}s`,
+    powerClear: "已清场",
+    powerShield: (seconds) => `护盾${seconds.toFixed(1)}s`,
+    powerSlow: (seconds) => `减速${seconds.toFixed(1)}s`,
+    powerGuideLabel: "道具说明",
+    powerClearGuide: "清除场上敌对球",
+    powerShieldGuide: "短时间免疫碰撞",
+    powerSlowGuide: "大幅减速敌对球",
     objectiveLabel: "目标",
     objectiveText: "在弹幕场中尽可能活得更久。",
     ruleOne: "贴近弹幕会让节奏更紧，保持距离和稳定移动比乱冲更重要。",
@@ -183,6 +210,8 @@ function createGame(state) {
     spawnTimer: 0,
     burstTimer: 1.8,
     shake: 0,
+    powerSpawnTimer: 6,
+    powerMessageTimer: 0,
     player: {
       x: WORLD.width / 2,
       y: WORLD.height / 2,
@@ -191,7 +220,13 @@ function createGame(state) {
       invuln: 0.55,
     },
     bullets: [],
+    powerups: [],
     particles: [],
+    effects: {
+      shield: 0,
+      slow: 0,
+      lastPower: "",
+    },
   };
 }
 
@@ -237,6 +272,7 @@ function togglePause() {
 function endGame() {
   game.state = "over";
   game.shake = 10;
+  game.powerups = [];
   bestScore = Math.max(bestScore, Math.floor(game.score));
   localStorage.setItem("bullet-drift-best", String(bestScore));
   bestValue.textContent = String(bestScore);
@@ -267,12 +303,17 @@ function updateGame(dt) {
   game.elapsed += dt;
   game.score += dt * (10 + pressure() * 2);
   game.player.invuln = Math.max(0, game.player.invuln - dt);
+  game.effects.shield = Math.max(0, game.effects.shield - dt);
+  game.effects.slow = Math.max(0, game.effects.slow - dt);
+  game.powerMessageTimer = Math.max(0, game.powerMessageTimer - dt);
 
   movePlayer(dt);
   spawnBullets(dt);
+  spawnPowerups(dt);
   updateBullets(dt);
   updateParticles(dt);
   checkCollisions();
+  checkPowerupCollisions();
 }
 
 function movePlayer(dt) {
@@ -382,9 +423,10 @@ function makeBullet(x, y, angle, speed, radius, kind) {
 }
 
 function updateBullets(dt) {
+  const slowFactor = game.effects.slow > 0 ? 0.32 : 1;
   for (const bullet of game.bullets) {
-    bullet.x += bullet.vx * dt;
-    bullet.y += bullet.vy * dt;
+    bullet.x += bullet.vx * dt * slowFactor;
+    bullet.y += bullet.vy * dt * slowFactor;
     bullet.age += dt;
   }
 
@@ -398,7 +440,7 @@ function updateBullets(dt) {
 }
 
 function checkCollisions() {
-  if (game.player.invuln > 0) return;
+  if (game.player.invuln > 0 || game.effects.shield > 0) return;
 
   for (const bullet of game.bullets) {
     const dist = Math.hypot(bullet.x - game.player.x, bullet.y - game.player.y);
@@ -410,6 +452,58 @@ function checkCollisions() {
     if (dist < bullet.radius + game.player.radius + 18) {
       game.score += 0.02;
     }
+  }
+}
+
+function spawnPowerups(dt) {
+  if (game.powerups.length > 0) return;
+
+  game.powerSpawnTimer -= dt;
+  if (game.powerSpawnTimer > 0) return;
+
+  const kind = choosePowerupKind();
+  game.powerups.push({
+    kind,
+    x: random(90, WORLD.width - 90),
+    y: random(80, WORLD.height - 80),
+    radius: 13,
+    age: 0,
+  });
+  game.powerSpawnTimer = random(8, 12);
+}
+
+function choosePowerupKind() {
+  const roll = Math.random();
+  if (roll < 0.34) return "clear";
+  if (roll < 0.67) return "shield";
+  return "slow";
+}
+
+function checkPowerupCollisions() {
+  for (const powerup of game.powerups) {
+    const dist = Math.hypot(powerup.x - game.player.x, powerup.y - game.player.y);
+    if (dist <= powerup.radius + game.player.radius) {
+      activatePowerup(powerup.kind);
+      game.powerups = game.powerups.filter((item) => item !== powerup);
+      return;
+    }
+  }
+}
+
+function activatePowerup(kind) {
+  game.effects.lastPower = kind;
+  game.powerMessageTimer = 1.4;
+
+  if (kind === "clear") {
+    const cleared = game.bullets.length;
+    game.bullets = [];
+    addBurst(game.player.x, game.player.y, Math.min(34, 12 + cleared), "clear");
+  } else if (kind === "shield") {
+    game.effects.shield = POWER_DURATIONS.shield;
+    addBurst(game.player.x, game.player.y, 18, "shield");
+  } else if (kind === "slow") {
+    game.effects.slow = POWER_DURATIONS.slow;
+    addBurst(game.player.x, game.player.y, 18, "slow");
   }
 }
 
@@ -451,9 +545,13 @@ function draw() {
 
   drawArena();
   drawBullets();
+  if (game.state === "running" || game.state === "paused") {
+    drawPowerups();
+  }
   drawParticles();
   if (game.state === "running" || game.state === "paused") {
     drawPlayer();
+    drawEffectCountdowns();
   }
   ctx.restore();
 }
@@ -490,10 +588,11 @@ function drawArena() {
 function drawPlayer() {
   const p = game.player;
   const pulse = 1 + Math.sin(performance.now() * 0.012) * 0.1;
+  const shielded = game.effects.shield > 0;
 
   ctx.beginPath();
-  ctx.arc(p.x, p.y, p.radius * 2.7 * pulse, 0, Math.PI * 2);
-  ctx.fillStyle = p.invuln > 0 ? "rgba(127, 255, 201, 0.12)" : "rgba(127, 255, 201, 0.08)";
+  ctx.arc(p.x, p.y, p.radius * (shielded ? 3.4 : 2.7) * pulse, 0, Math.PI * 2);
+  ctx.fillStyle = shielded ? "rgba(255, 218, 105, 0.16)" : p.invuln > 0 ? "rgba(127, 255, 201, 0.12)" : "rgba(127, 255, 201, 0.08)";
   ctx.fill();
 
   ctx.beginPath();
@@ -502,8 +601,42 @@ function drawPlayer() {
   ctx.fill();
 
   ctx.lineWidth = 3;
-  ctx.strokeStyle = "#d8fff2";
+  ctx.strokeStyle = shielded ? "#ffd969" : "#d8fff2";
   ctx.stroke();
+}
+
+function drawEffectCountdowns() {
+  const effects = activeTimedPowers();
+  if (effects.length === 0) return;
+
+  const p = game.player;
+  const badgeWidth = 48;
+  const badgeHeight = 22;
+  const gap = 6;
+  const totalWidth = effects.length * badgeWidth + (effects.length - 1) * gap;
+  const minFirstX = 30 + badgeWidth / 2;
+  const maxFirstX = WORLD.width - 30 - totalWidth + badgeWidth / 2;
+  const startX = clamp(p.x - totalWidth / 2 + badgeWidth / 2, minFirstX, maxFirstX);
+  const y = clamp(p.y - p.radius * 3.6, 28, WORLD.height - 28);
+
+  effects.forEach((effect, index) => {
+    const x = startX + index * (badgeWidth + gap);
+    const color = powerupColors(effect.kind).fill;
+
+    ctx.beginPath();
+    ctx.roundRect(x - badgeWidth / 2, y - badgeHeight / 2, badgeWidth, badgeHeight, 8);
+    ctx.fillStyle = "rgba(8, 14, 24, 0.78)";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.font = "800 15px Segoe UI, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(effect.remaining.toFixed(1), x, y + 0.5);
+  });
 }
 
 function drawBullets() {
@@ -523,14 +656,66 @@ function drawBullets() {
   }
 }
 
+function drawPowerups() {
+  for (const powerup of game.powerups) {
+    powerup.age += 0.016;
+    const colors = powerupColors(powerup.kind);
+    const pulse = 1 + Math.sin((performance.now() * 0.006) + powerup.x) * 0.12;
+
+    ctx.beginPath();
+    ctx.arc(powerup.x, powerup.y, powerup.radius * 2.3 * pulse, 0, Math.PI * 2);
+    ctx.fillStyle = colors.glow;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(powerup.x, powerup.y, powerup.radius, 0, Math.PI * 2);
+    ctx.fillStyle = colors.fill;
+    ctx.fill();
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = colors.stroke;
+    ctx.stroke();
+
+    ctx.fillStyle = colors.icon;
+    ctx.font = "700 14px Segoe UI, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(powerupIcon(powerup.kind), powerup.x, powerup.y + 0.5);
+  }
+}
+
+function powerupColors(kind) {
+  if (kind === "clear") {
+    return { fill: "#ffd969", stroke: "#fff0a6", glow: "rgba(255, 217, 105, 0.24)", icon: "#1a1422" };
+  }
+  if (kind === "shield") {
+    return { fill: "#7fffc9", stroke: "#d8fff2", glow: "rgba(127, 255, 201, 0.22)", icon: "#102018" };
+  }
+  return { fill: "#9aa8ff", stroke: "#dde1ff", glow: "rgba(154, 168, 255, 0.24)", icon: "#11162b" };
+}
+
+function powerupIcon(kind) {
+  if (kind === "clear") return "C";
+  if (kind === "shield") return "S";
+  return "L";
+}
+
 function drawParticles() {
   for (const particle of game.particles) {
     const alpha = Math.max(0, particle.life / particle.maxLife);
     ctx.beginPath();
     ctx.arc(particle.x, particle.y, 3 + alpha * 3, 0, Math.PI * 2);
-    ctx.fillStyle = particle.tone === "danger" ? `rgba(255, 106, 86, ${alpha})` : `rgba(127, 255, 201, ${alpha})`;
+    ctx.fillStyle = particleColor(particle.tone, alpha);
     ctx.fill();
   }
+}
+
+function particleColor(tone, alpha) {
+  if (tone === "danger") return `rgba(255, 106, 86, ${alpha})`;
+  if (tone === "clear") return `rgba(255, 217, 105, ${alpha})`;
+  if (tone === "shield") return `rgba(127, 255, 201, ${alpha})`;
+  if (tone === "slow") return `rgba(154, 168, 255, ${alpha})`;
+  return `rgba(127, 255, 201, ${alpha})`;
 }
 
 function updateHud() {
@@ -538,6 +723,24 @@ function updateHud() {
   bestValue.textContent = String(bestScore);
   timeValue.textContent = t().timeValue(game.elapsed);
   pressureValue.textContent = t().pressureValue(pressure());
+  powerValue.textContent = powerStatusText();
+}
+
+function powerStatusText() {
+  const copy = t();
+  if (game.state === "ready" || game.state === "over") return copy.powerReady;
+  if (game.effects.shield > 0) return copy.powerShield(game.effects.shield);
+  if (game.effects.slow > 0) return copy.powerSlow(game.effects.slow);
+  if (game.powerMessageTimer > 0 && game.effects.lastPower === "clear") return copy.powerClear;
+  if (game.powerups.length > 0) return copy.powerAvailable;
+  return copy.powerWaiting(game.powerSpawnTimer);
+}
+
+function activeTimedPowers() {
+  const effects = [];
+  if (game.effects.shield > 0) effects.push({ kind: "shield", remaining: game.effects.shield });
+  if (game.effects.slow > 0) effects.push({ kind: "slow", remaining: game.effects.slow });
+  return effects;
 }
 
 function applyLanguage() {

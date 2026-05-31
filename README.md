@@ -21,6 +21,14 @@ Then open `http://127.0.0.1:4173`.
 - Pause / resume: `P`, `Esc`, or the on-screen button
 - Touch or pointer: drag inside the arena
 
+## Power-Ups
+
+- `C`: clears hostile bullets from the arena
+- `S`: grants a short shield
+- `L`: slows hostile bullets for a short window
+
+Timed effects show a compact numeric countdown near the player while active.
+
 ## Language
 
 Use the `EN` / `中文` switch in the top bar. The game remembers the last selected language in this browser.
