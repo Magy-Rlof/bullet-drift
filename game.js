@@ -108,6 +108,7 @@ const TRANSLATIONS = {
     pausedTitle: "Game is paused",
     pausedHint: "P / resume",
     impactLabel: "Impact",
+    newBestLabel: "New best",
     impactTitle: (score) => `Score ${score}`,
     impactHint: "Press Space or restart for another run.",
     resultScoreLabel: "Score",
@@ -168,6 +169,7 @@ const TRANSLATIONS = {
     pausedTitle: "游戏已暂停",
     pausedHint: "P / 继续",
     impactLabel: "撞击",
+    newBestLabel: "新纪录",
     impactTitle: (score) => `得分 ${score}`,
     impactHint: "按空格或点击重新开始，再来一局。",
     resultScoreLabel: "得分",
@@ -209,11 +211,14 @@ const TRANSLATIONS = {
 
 const BASE_WORLD = { width: 960, height: 540 };
 const WORLD = { ...BASE_WORLD };
+const STORAGE_PREFIX = "bullet-drift-";
 const keys = new Set();
 const pointer = { active: false, x: WORLD.width / 2, y: WORLD.height / 2, lastX: WORLD.width / 2, lastY: WORLD.height / 2 };
 
-let bestScore = Number(localStorage.getItem("bullet-drift-best") || 0);
-let language = localStorage.getItem("bullet-drift-language") || preferredLanguage();
+clearStoredDataFromQuery();
+
+let bestScore = Number(localStorage.getItem(`${STORAGE_PREFIX}best`) || 0);
+let language = localStorage.getItem(`${STORAGE_PREFIX}language`) || preferredLanguage();
 let lastFrame = 0;
 let pauseOverlayCleanupTimer = 0;
 let audioContext;
@@ -246,7 +251,7 @@ exitFullscreenAction.addEventListener("click", exitFullscreen);
 for (const button of languageButtons) {
   button.addEventListener("click", () => {
     language = button.dataset.lang;
-    localStorage.setItem("bullet-drift-language", language);
+    localStorage.setItem(`${STORAGE_PREFIX}language`, language);
     applyLanguage();
   });
 }
@@ -318,6 +323,7 @@ function createGame(state) {
     state,
     elapsed: 0,
     score: 0,
+    newBest: false,
     spawnTimer: 0,
     burstTimer: 1.8,
     shake: 0,
@@ -391,15 +397,18 @@ function endGame() {
   game.shake = 10;
   game.bullets = [];
   game.powerups = [];
-  bestScore = Math.max(bestScore, Math.floor(game.score));
-  localStorage.setItem("bullet-drift-best", String(bestScore));
+  const finalScore = Math.floor(game.score);
+  game.newBest = finalScore > bestScore;
+  bestScore = Math.max(bestScore, finalScore);
+  localStorage.setItem(`${STORAGE_PREFIX}best`, String(bestScore));
   bestValue.textContent = String(bestScore);
   syncActionButton();
   syncOverlay();
   clearPauseOverlayNow();
   overlay.classList.remove("is-hidden");
   addBurst(game.player.x, game.player.y, 26, "danger");
-  feedback("impact");
+  if (game.newBest) addBurst(game.player.x, game.player.y, 18, "record");
+  feedback(game.newBest ? "record" : "impact");
 }
 
 function frame(timestamp) {
@@ -865,6 +874,7 @@ function particleColor(tone, alpha) {
   if (tone === "shield") return `rgba(127, 255, 201, ${alpha})`;
   if (tone === "slow") return `rgba(154, 168, 255, ${alpha})`;
   if (tone === "stage") return `rgba(111, 214, 255, ${alpha})`;
+  if (tone === "record") return `rgba(255, 217, 105, ${alpha})`;
   return `rgba(127, 255, 201, ${alpha})`;
 }
 
@@ -955,8 +965,9 @@ function syncFullscreenUi() {
 
 function syncOverlay() {
   const copy = t();
+  stateLabel.classList.toggle("is-new-best", game.state === "over" && game.newBest);
   if (game.state === "over") {
-    stateLabel.textContent = copy.impactLabel;
+    stateLabel.textContent = game.newBest ? copy.newBestLabel : copy.impactLabel;
     stateTitle.textContent = copy.impactTitle(Math.floor(game.score));
     stateHint.textContent = copy.impactHint;
     syncResultStats();
@@ -984,6 +995,7 @@ function syncResultStats() {
   resultScoreValue.textContent = String(score);
   resultTimeValue.textContent = t().timeValue(game.elapsed);
   resultBestValue.textContent = String(bestScore);
+  resultBestValue.parentElement.classList.toggle("is-new-best", game.newBest);
 }
 
 function t() {
@@ -992,6 +1004,19 @@ function t() {
 
 function preferredLanguage() {
   return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+function clearStoredDataFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has("resetData")) return;
+
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith(STORAGE_PREFIX)) localStorage.removeItem(key);
+  }
+
+  params.delete("resetData");
+  const query = params.toString();
+  window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
 }
 
 function updatePauseOverlayPlacement() {
@@ -1148,6 +1173,7 @@ function playSound(kind) {
     pause: [220, 0.06, "sine", 0.03],
     resume: [520, 0.06, "triangle", 0.035],
     impact: [90, 0.16, "sawtooth", 0.055],
+    record: [880, 0.18, "triangle", 0.045],
     stage: [660, 0.12, "triangle", 0.04],
     clear: [760, 0.12, "square", 0.045],
     shield: [520, 0.1, "sine", 0.04],
@@ -1179,6 +1205,7 @@ function vibrate(kind) {
     pause: 8,
     resume: 8,
     impact: [28, 28, 42],
+    record: [18, 22, 18, 22, 32],
     stage: [18, 24, 18],
     clear: 18,
     shield: 14,
