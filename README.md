@@ -80,4 +80,3 @@ http://127.0.0.1:4173/?resetData=1
 
 - [PRODUCT.md](PRODUCT.md)：产品范围、核心循环和验收标准。
 - [DESIGN.md](DESIGN.md)：界面设计原则和状态设计。
-- [RELEASE.md](RELEASE.md)：发布准备和上线检查清单。
