@@ -2,6 +2,8 @@
 
 一个轻量的 Canvas 网页小游戏。玩家控制绿色主角球，在逐步增强的弹幕中尽可能存活更久，拾取道具改变局势，并争取刷新最高分。
 
+[立即游玩](https://magy-rlof.github.io/bullet-drift/)
+
 ![弹幕漂移实机画面](docs/screenshot-gameplay.png)
 
 ## 玩法
@@ -67,47 +69,12 @@ http://127.0.0.1:4173/?resetData=1
 
 页面会清理本游戏的 `bullet-drift-*` 本地数据，并自动移除地址栏里的 `resetData` 参数。
 
-## 发布到 GitHub Pages
-
-项目是静态网页，可以直接部署到 GitHub Pages。
-
-1. 在 GitHub 创建仓库。
-2. 将本地仓库推送到 GitHub。
-3. 进入仓库的 `Settings` -> `Pages`。
-4. `Source` 选择 `Deploy from a branch`。
-5. `Branch` 选择 `main`，目录选择 `/ (root)`。
-6. 保存后等待 GitHub 生成访问地址。
-
-仓库根目录需要保留这些文件：
-
-```text
-index.html
-styles.css
-game.js
-favicon.svg
-```
-
-`server.mjs` 只用于本地测试，GitHub Pages 不会使用它。
-
 ## 设备支持
 
 - 支持桌面浏览器、普通手机和 iPad Pro 等大屏触控设备。
 - 桌面端支持窗口模式和全屏模式。
 - 手机端以横屏游玩为主，竖屏用于提示和规则说明。
 - Nest Hub / Nest Hub Max 仅作为大屏横屏预览，不保证竖屏说明页或完整操作体验。
-
-## 发布前检查
-
-发布前建议至少确认：
-
-- `node --check game.js` 通过。
-- 本地服务器可以正常打开首页。
-- 桌面窗口模式可以开始、暂停、重开。
-- 桌面全屏模式能进入和退出，`Esc` 只用于退出全屏。
-- 手机横屏没有页面滚动，游戏场地足够大。
-- 手机竖屏能看到横屏提示和基础说明。
-- 道具 `C/S/L` 都能拾取并触发效果。
-- 刷新最高分时能看到“新纪录”反馈。
 
 ## 项目文档
 
